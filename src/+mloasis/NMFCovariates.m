@@ -154,13 +154,6 @@ classdef NMFCovariates < mladni.NMFCovariates & handle
             end
         end
 
-        function t = table_covariates_1stscan(this)
-            t = this.demogr_.table_firstscan(this.table_covariates());
-
-            cache_file = this.covariates_1stscan_file;
-            save(cache_file, 't');
-            writetable(t, strrep(cache_file, ".mat", ".csv"));
-        end
         function t = table_fdg(this)
             if ~isempty(this.table_fdg_)
                 t = this.table_fdg_;

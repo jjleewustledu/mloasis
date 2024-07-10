@@ -56,36 +56,37 @@ classdef Oasis3 < mladni.DataCuration & handle
         end
 
         function call(this)
-            % mloasis.FDG ~ computes brain mask (dlicv), warps T1w & FDG to MNI, computes PVE, applies brain mask
+            %% mloasis.FDG ~ computes brain mask (dlicv), warps T1w & FDG to MNI, computes PVE, applies brain mask
 
-            % generate table with filelist for NMF
+            %% generate table with filelist for NMF
+
             % call(this.demogr); 
             
-            % NMF on cluster
+            %% NMF on cluster
+            
             % $SINGULARITY_HOME/OASIS3/VolBin/submit_*.sh
 
-            % create anticlust filelists with RStudio, then run on cluster
+            %% create anticlust filelists with RStudio, then run on cluster
+            
             this.anticlust_cn_repeat();
             % $SINGULARITY_HOME/ADNI/VolBin/submit_anticlust_20230526.sh
 
-            % write cache "X.mat", then calculate reconstruction errors, reproducibility analysis
+            %% write cache "X.mat", then calculate reconstruction errors, reproducibility analysis
+
             call(this.nmf)
 
             % calculate component-weighted averages
             call2(this.nmf)
 
             % build argmax maps
-            % for b = 2:2:24
-            %     nmfc = mloasis.NMFCovariates(selectedNumBases=b); 
-            %     nmfc.table_covariates_1stscan(); 
-            % end
             % this.nmfh.build_argmax_maps;
 
             % check completeness
             % fdg = this.demogr.table_fdg;
             % assert(sum(cellfun(@isempty, fdg.Filelist)) == 0, stackstr())
 
-            % report ARIs, Hungarian overlaps between OASIS3 and ADNI
+            %% report ARIs, Hungarian overlaps between OASIS3 and ADNI
+            
             this.matrices_ARIs();
             this.matrices_overlaps();
 

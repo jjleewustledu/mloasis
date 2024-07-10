@@ -65,6 +65,29 @@ classdef OasisDemographics < handle
                 s = str2double(re.sub);
             end
         end
+
+        function T = amyloid_info(this)
+            T_ = this.centiloid_info();
+            sub = T_.sub;
+            ses = T_.ses;
+
+            amyloidosis = false(size(sub)); % conceptually easier to "opt in" amyloidosis by rules of get_amyloidosis()
+            unique_subs = asrow(unique(sub));
+            for asub = unique_subs
+                select_sub = sub == asub;
+                U_ = T_(select_sub, :);
+                amy_ = get_amyloidosis(U_);
+                amyloidosis(select_sub) = amy_;
+            end
+
+            T = natsortrows(table(sub, ses, amyloidosis), [], [1,2]);
+
+            function amy = get_amyloidosis(U__)
+                amy = ...
+                    (strcmp(U__.tracer, 'AV45') & U__.centiloid > this.cutoff_av45) | ...
+                    (strcmp(U__.tracer, 'PIB') & U__.centiloid > this.cutoff_pib);
+            end
+        end
         
         function T = apoe4_info(this)
             warning("off", "MATLAB:table:ModifiedAndSavedVarnames")
@@ -89,56 +112,6 @@ classdef OasisDemographics < handle
                     handwarning(ME)
                     s = NaN;
                 end
-            end
-        end
-        
-        function T = sex_info(this) 
-            warning("off", "MATLAB:table:ModifiedAndSavedVarnames")
-            T_ = readtable(fullfile(this.workdir, "oasis3_clinical_full.csv"));
-            sub = cell2mat(cellfun(@get_sub, T_.ADRC_ADRCCLINICALDATAID, UniformOutput=false));
-            
-            unique_subs = ascol(unique(sub));
-            sex = cell(size(unique_subs));
-            for u = 1:length(unique_subs)
-                select_sub = sub == unique_subs(u);
-                U_ = T_(select_sub, :);
-                sex{u} = U_.M_F{1};
-            end
-            sex = ascol(categorical(sex));
-            T = natsortrows(table(unique_subs, sex));            
-            warning("on", "MATLAB:table:ModifiedAndSavedVarnames")
-
-            function s = get_sub(s_)
-                try
-                    re = regexp(s_, "OAS(?<sub>\d{5})_ClinicalData_d(?<ses>\d+)$", "names");
-                    s = str2double(re.sub);
-                catch ME
-                    handwarning(ME)
-                    s = NaN;
-                end
-            end
-        end
-
-        function T = amyloid_info(this)
-            T_ = this.centiloid_info();
-            sub = T_.sub;
-            ses = T_.ses;
-
-            amyloidosis = false(size(sub)); % conceptually easier to "opt in" amyloidosis by rules of get_amyloidosis()
-            unique_subs = asrow(unique(sub));
-            for asub = unique_subs
-                select_sub = sub == asub;
-                U_ = T_(select_sub, :);
-                amy_ = get_amyloidosis(U_);
-                amyloidosis(select_sub) = amy_;
-            end
-
-            T = natsortrows(table(sub, ses, amyloidosis), [], [1,2]);
-
-            function amy = get_amyloidosis(U__)
-                amy = ...
-                    (strcmp(U__.tracer, 'AV45') & U__.centiloid > this.cutoff_av45) | ...
-                    (strcmp(U__.tracer, 'PIB') & U__.centiloid > this.cutoff_pib);
             end
         end
         
@@ -197,7 +170,34 @@ classdef OasisDemographics < handle
                 ses(idx) = str2double(re.ses);
             end
             Filelist = myfileprefix(globbed) + "_avgt_b50_on_T1w_Warped_dlicv_ponsvermis.nii.gz";
-            T = natsortrows(table(Filelist, globbed, sub, ses), [], [2,3]);
+            T = natsortrows(table(Filelist, globbed, sub, ses), [], [2, 3]);
+        end
+        
+        function T = sex_info(this) 
+            warning("off", "MATLAB:table:ModifiedAndSavedVarnames")
+            T_ = readtable(fullfile(this.workdir, "oasis3_clinical_full.csv"));
+            sub = cell2mat(cellfun(@get_sub, T_.ADRC_ADRCCLINICALDATAID, UniformOutput=false));
+            
+            unique_subs = ascol(unique(sub));
+            sex = cell(size(unique_subs));
+            for u = 1:length(unique_subs)
+                select_sub = sub == unique_subs(u);
+                U_ = T_(select_sub, :);
+                sex{u} = U_.M_F{1};
+            end
+            sex = ascol(categorical(sex));
+            T = natsortrows(table(unique_subs, sex));            
+            warning("on", "MATLAB:table:ModifiedAndSavedVarnames")
+
+            function s = get_sub(s_)
+                try
+                    re = regexp(s_, "OAS(?<sub>\d{5})_ClinicalData_d(?<ses>\d+)$", "names");
+                    s = str2double(re.sub);
+                catch ME
+                    handwarning(ME)
+                    s = NaN;
+                end
+            end
         end
         
         function T = table_fdg(this)
