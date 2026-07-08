@@ -72,20 +72,38 @@ classdef OasisDemographics < handle
             ses = T_.ses;
 
             amyloidosis = false(size(sub)); % conceptually easier to "opt in" amyloidosis by rules of get_amyloidosis()
+            amyloid_suvr = NaN(size(sub));
             unique_subs = asrow(unique(sub));
             for asub = unique_subs
                 select_sub = sub == asub;
                 U_ = T_(select_sub, :);
                 amy_ = get_amyloidosis(U_);
                 amyloidosis(select_sub) = amy_;
+                suvr_ = get_amyloid_suvr(U_);
+                amyloid_suvr(select_sub) = suvr_;
             end
 
-            T = natsortrows(table(sub, ses, amyloidosis), [], [1,2]);
+            T = natsortrows(table(sub, ses, amyloidosis, amyloid_suvr), [], [1,2]);
 
             function amy = get_amyloidosis(U__)
                 amy = ...
                     (strcmp(U__.tracer, 'AV45') & U__.centiloid > this.cutoff_av45) | ...
                     (strcmp(U__.tracer, 'PIB') & U__.centiloid > this.cutoff_pib);
+            end
+
+            function suvr = get_amyloid_suvr(U__)
+                % using table 14 of OASIS-3_Imaging_Data_Dictionary_v2.3.pdf, convert centiloids to AV45 SUVR;
+                % prefer RSF partial volume correction which provides greater consistency between PiB and AV45 SUVR
+
+                suvr = NaN(size(U__, 1), 1);
+                for row = 1:size(U__, 1)
+                    if strcmp(U__.tracer(row), 'AV45')
+                        suvr(row) = (U__.centiloid(row) + 43.2)/53.6;  % eq. 6
+                    elseif strcmp(U__.tracer(row), 'PIB')
+                        suvr__ = (U__.centiloid(row) + 47.5)/45.0;  % eq. 4
+                        suvr(row) = 0.7948*suvr__ + 0.0238;  % eq. 10
+                    end
+                end
             end
         end
         
@@ -133,7 +151,8 @@ classdef OasisDemographics < handle
             sub = cell2mat(cellfun(@get_sub, T_.OASISID, UniformOutput=false));
             ses = T_.days_to_visit;
             cdr = T_.CDRTOT;
-            T = natsortrows(table(sub, ses, cdr), [], [1, 2]);
+            cdrsb = T_.CDRSUM;
+            T = natsortrows(table(sub, ses, cdr, cdrsb), [], [1, 2]);
             
             T(T.ses < -36500, :) = []; % delete mangled data
             warning("on", "MATLAB:table:ModifiedAndSavedVarnames")
@@ -217,7 +236,9 @@ classdef OasisDemographics < handle
 
             warning("off", "MATLAB:badsubscript")
             cdr = NaN(size(sub));
+            cdrsb = NaN(size(sub));
             amyloidosis = NaN(size(sub));
+            amyloid_suvr = NaN(size(sub));
             age = NaN(size(sub));
             sex = cell(size(sub));
             apoe4 = NaN(size(sub));
@@ -225,13 +246,14 @@ classdef OasisDemographics < handle
                 the_sub = sub(row);
                 the_ses = ses(row);
 
-                try % cdr
+                try % cdr & cdrsb
                     Ucdr = Tcdr(Tcdr.sub == the_sub, :);
                     dday = abs(Ucdr.ses - the_ses);
                     Ucdr = addvars(Ucdr, dday, NewVariableNames="dday");
                     Ucdr = sortrows(Ucdr, "dday");
                     if Ucdr.dday(1) < this.days_separation_tol
                         cdr(row) = Ucdr.cdr(1);
+                        cdrsb(row) = Ucdr.cdrsb(1);
                     else
                         fprintf("sub %g, ses %g, cdr %g had delta days ~ %g\n", ...
                             the_sub, the_ses, Ucdr.cdr(1), Ucdr.dday(1))
@@ -275,6 +297,7 @@ classdef OasisDemographics < handle
                         Uamy = sortrows(Uamy, "dday"); % ordered by abs delta day from the_ses
                         if Uamy.dday(1) < this.days_separation_tol % select any amloid_s1 within datetime_separation_tol of acqdate
                             amyloidosis(row) = Uamy.amyloidosis(1);
+                            amyloid_suvr(row) = Uamy.amyloid_suvr(1);
                             continue
                         end
                         if all(~Uamy__.amyloidosis) % no known amyloidosis through end of amy scanning
@@ -306,7 +329,7 @@ classdef OasisDemographics < handle
 
             %sex = categorical(sex);
 
-            T = table(Filelist, globbed, sub, ses, cdr, amyloidosis, age, sex, apoe4); % age, sex, apoe4
+            T = table(Filelist, globbed, sub, ses, cdr, cdrsb, amyloidosis, amyloid_suvr, age, sex, apoe4); % age, sex, apoe4
             T = T(~isnan(cdr) & ~isnan(amyloidosis), :);
             T.amyloidosis = logical(T.amyloidosis);
         end

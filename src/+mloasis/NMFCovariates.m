@@ -90,7 +90,7 @@ classdef NMFCovariates < mladni.NMFCovariates & handle
                 t = this.table_covariates_cache_;
                 return
             end
-            cache_file = this.covariates_file;
+            cache_file = this.covariates_file();
             if isfile(cache_file)
                 fprintf("%s: using cached from filesystem\n", stackstr())
                 ld = load(cache_file);
@@ -146,7 +146,7 @@ classdef NMFCovariates < mladni.NMFCovariates & handle
 
             % save separate tables for each component
             if opts.save_1comp
-                for idx = 1:this.selectedNumBases
+                for idx = 1:this.N_patterns
                     t1 = this.table_covariates_1comp(idx);
                     save(strrep(cache_file, ".mat", "_1comp.mat"), 't1');
                     writetable(t1, strrep(cache_file, ".mat", "_1comp.csv"));
@@ -161,6 +161,18 @@ classdef NMFCovariates < mladni.NMFCovariates & handle
             end
             this.table_fdg_ = this.demogr_.table_fdg();
             t = this.table_fdg_;
+        end
+
+        function t = writetables(this, opts)
+            arguments
+                this mladni.NMFCovariates
+                opts.first_scan logical = true
+            end            
+
+            t_1st = this.table_all(true);  % simple selection of 1st scan of FDG
+
+            save(fullfile(this.componentDir, "NMFCovariates_table_covariates_1stscan_longitudinal.mat"), "t_1st");
+            writetable(t_1st, fullfile(this.componentDir, "NMFCovariates_table_covariates_1stscan_longitudinal.csv"), WriteVariableNames=true)
         end
     end
     
